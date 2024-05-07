@@ -3,6 +3,8 @@ import {
   BeforeUpdate,
   Column,
   Entity,
+  ManyToOne,
+  OneToMany,
   PrimaryGeneratedColumn,
 } from 'typeorm';
 
@@ -37,6 +39,14 @@ export class User {
     default: ['user'],
   })
   roles: string[];
+
+  // Un usuario que tiene como rol "user" tiene un solo "admin".
+  @ManyToOne(() => User, (admin) => admin.managedUsers)
+  admin?: User;
+
+  // Un usuario con rol "admin" puede gestionar múltiples usuarios con rol "user".
+  @OneToMany(() => User, (user) => user.admin)
+  managedUsers: User[];
 
   @BeforeInsert()
   checkFieldsBeforeInsert() {
