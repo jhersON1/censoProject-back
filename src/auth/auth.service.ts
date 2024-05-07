@@ -7,11 +7,10 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-
 import * as bcrypt from 'bcrypt';
 
 import { User } from './entities/user.entity';
-import { LoginUserDto, CreateUserDto } from './dto';
+import { LoginUserDto, CreateUserDto, CreateUserWithAdminDto } from './dto';
 import { JwtPayload } from './interfaces';
 
 @Injectable()
@@ -23,13 +22,52 @@ export class AuthService {
     private readonly jwtService: JwtService,
   ) {}
 
-  async create(createUserDto: CreateUserDto) {
+  /**
+   * Registrar un nuevo usuario con rol de "admin".
+   */
+  async registerAdmin(createUserDto: CreateUserDto) {
     try {
       const { password, ...userData } = createUserDto;
 
+      const admin = this.userRepository.create({
+        ...userData,
+        password: bcrypt.hashSync(password, 10),
+        roles: ['admin'], // Asignar explícitamente el rol de "admin"
+      });
+
+      await this.userRepository.save(admin);
+      delete admin.password;
+
+      return {
+        ...admin,
+        token: this.getJwtToken({ id: admin.id }),
+      };
+    } catch (error) {
+      this.handleDBErrors(error);
+    }
+  }
+
+  /**
+   * Registrar un nuevo usuario con rol de "user" asociado a un administrador existente.
+   */
+  async registerUser(createUserWithAdminDto: CreateUserWithAdminDto) {
+    const { adminCode, password, ...userData } = createUserWithAdminDto;
+
+    // Encontrar el administrador por su UUID (adminCode).
+    const admin = await this.userRepository.findOneBy({ id: adminCode });
+
+    // Validar si el administrador existe y tiene el rol adecuado.
+    if (!admin || !admin.roles.includes('admin')) {
+      throw new UnauthorizedException('Invalid admin code or role.');
+    }
+
+    try {
+      // Crear un nuevo usuario asociado a ese administrador.
       const user = this.userRepository.create({
         ...userData,
         password: bcrypt.hashSync(password, 10),
+        roles: ['user'],
+        admin, // Asociar el usuario con el admin encontrado.
       });
 
       await this.userRepository.save(user);
@@ -39,7 +77,6 @@ export class AuthService {
         ...user,
         token: this.getJwtToken({ id: user.id }),
       };
-      // TODO: Retornar el JWT de acceso
     } catch (error) {
       this.handleDBErrors(error);
     }
@@ -53,11 +90,10 @@ export class AuthService {
       select: { email: true, password: true, id: true }, //! OJO!
     });
 
-    if (!user)
-      throw new UnauthorizedException('Credentials are not valid (email)');
+    if (!user) throw new UnauthorizedException('Invalid credentials (email)');
 
     if (!bcrypt.compareSync(password, user.password))
-      throw new UnauthorizedException('Credentials are not valid (password)');
+      throw new UnauthorizedException('Invalid credentials (password)');
 
     return {
       ...user,
@@ -76,11 +112,36 @@ export class AuthService {
     return this.userRepository.find();
   }
 
-  // async findUserById(id: string) {
-  //   const user = await this.userRepository.findOneBy( id );
-  //   const { password, ...rest } = user.toJSON();
-  //   return rest;
-  // }
+  /**
+   * Encontrar todos los usuarios con el rol "admin" usando QueryBuilder.
+   */
+  async findAdmins(): Promise<User[]> {
+    return await this.userRepository
+      .createQueryBuilder('user')
+      .where(':role = ANY (user.roles)', { role: 'admin' })
+      .getMany();
+  }
+
+  /**
+   * Encontrar todos los usuarios con el rol "user" usando QueryBuilder.
+   */
+  async findUsers(): Promise<User[]> {
+    return await this.userRepository
+      .createQueryBuilder('user')
+      .where(':role = ANY (user.roles)', { role: 'user' })
+      .getMany();
+  }
+
+  /**
+   * Obtener usuarios que están gestionados por un administrador específico.
+   * @param adminId El ID del administrador.
+   */
+  async findUsersManagedByAdmin(adminId: string): Promise<User[]> {
+    return await this.userRepository
+      .createQueryBuilder('user')
+      .where('user.adminId = :adminId', { adminId })
+      .getMany();
+  }
 
   public getJwtToken(payload: JwtPayload) {
     const token = this.jwtService.sign(payload);
