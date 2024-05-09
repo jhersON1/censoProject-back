@@ -10,7 +10,7 @@ import { Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 
 import { User } from './entities/user.entity';
-import { LoginUserDto, CreateUserDto, CreateUserWithAdminDto } from './dto';
+import { CreateUserDto, CreateUserWithAdminDto, LoginUserDto } from './dto';
 import { JwtPayload } from './interfaces';
 
 @Injectable()
@@ -144,8 +144,7 @@ export class AuthService {
   }
 
   public getJwtToken(payload: JwtPayload) {
-    const token = this.jwtService.sign(payload);
-    return token;
+    return this.jwtService.sign(payload);
   }
 
   private handleDBErrors(error: any): never {

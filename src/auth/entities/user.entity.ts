@@ -29,6 +29,11 @@ export class User {
   @Column('text')
   lastName: string;
 
+  @Column('text', {
+    unique: true,
+  })
+  dni: string;
+
   @Column('bool', {
     default: true,
   })
