@@ -7,6 +7,7 @@ import {
   OneToMany,
   PrimaryGeneratedColumn,
 } from 'typeorm';
+import { Form } from "../../form/entities/form.entity";
 
 @Entity('users')
 export class User {
@@ -52,6 +53,10 @@ export class User {
   // Un usuario con rol "admin" puede gestionar múltiples usuarios con rol "user".
   @OneToMany(() => User, (user) => user.admin)
   managedUsers: User[];
+
+  // Un usuario con rol "admin" puede gestionar múltiples formularios.
+  @OneToMany(() => Form, (form) => form.admin)
+  forms: Form[];
 
   @BeforeInsert()
   checkFieldsBeforeInsert() {
