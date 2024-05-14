@@ -4,10 +4,11 @@ import {
   Post,
   Body,
   Request,
+  Headers,
   HttpException,
   HttpStatus,
-  Param,
-} from '@nestjs/common';
+  Param, UnauthorizedException, Delete
+} from "@nestjs/common";
 import { AuthService } from './auth.service';
 import { GetUser, Auth } from './decorators';
 
@@ -90,6 +91,21 @@ export class AuthController {
     return this.authService.findUsersManagedByAdmin(adminId);
   }
 
+  @Get('admin-id')
+  async getAdminId(@Headers('Authorization') authHeader: string) {
+    if (!authHeader) {
+      throw new UnauthorizedException('Authorization header not found');
+    }
+
+    const token = authHeader.split(' ')[1];
+
+    if (!token) {
+      throw new UnauthorizedException('Token not found');
+    }
+
+    return this.authService.getAdminIdFromToken(token);
+  }
+
   /**
    * Verificar la validez del token actual y retornar un nuevo token.
    */
@@ -116,5 +132,11 @@ export class AuthController {
   @Get()
   findAll() {
     return this.authService.findAll();
+  }
+
+  //@Auth(ValidRoles.admin)
+  @Delete('user/:id')
+  async deleteUser(@Param('id') id: string): Promise<void> {
+    return this.authService.deleteUser(id);
   }
 }

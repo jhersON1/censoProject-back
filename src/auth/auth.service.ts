@@ -1,9 +1,9 @@
 import {
   BadRequestException,
   Injectable,
-  InternalServerErrorException,
-  UnauthorizedException,
-} from '@nestjs/common';
+  InternalServerErrorException, NotFoundException,
+  UnauthorizedException
+} from "@nestjs/common";
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -145,6 +145,48 @@ export class AuthService {
 
   public getJwtToken(payload: JwtPayload) {
     return this.jwtService.sign(payload);
+  }
+
+  /**
+   * Obtener el ID del administrador basado en el token del usuario.
+   */
+  async getAdminIdFromToken(token: string): Promise<string> {
+    // Decodificar el token
+    const decoded = this.jwtService.verify(token);
+
+    if (!decoded || !decoded.id) {
+      throw new UnauthorizedException('Invalid token');
+    }
+
+    // Buscar el usuario por ID
+    const user = await this.userRepository.findOne({
+      where: { id: decoded.id },
+      relations: ['admin'],
+    });
+
+    if (!user || !user.admin) {
+      throw new NotFoundException('User or admin not found');
+    }
+
+    return user.admin.id;
+  }
+
+  /**
+   * Eliminar un usuario por su ID.
+   * @param userId El ID del usuario a eliminar.
+   */
+  async deleteUser(userId: string): Promise<void> {
+    const user = await this.userRepository.findOne({ where: { id: userId } });
+
+    if (!user) {
+      throw new NotFoundException(`User with ID ${userId} not found`);
+    }
+
+    try {
+      await this.userRepository.remove(user);
+    } catch (error) {
+      this.handleDBErrors(error);
+    }
   }
 
   private handleDBErrors(error: any): never {
