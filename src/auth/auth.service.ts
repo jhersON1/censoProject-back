@@ -12,6 +12,7 @@ import * as bcrypt from 'bcrypt';
 import { User } from './entities/user.entity';
 import { CreateUserDto, CreateUserWithAdminDto, LoginUserDto } from './dto';
 import { JwtPayload } from './interfaces';
+import { use } from "passport";
 
 @Injectable()
 export class AuthService {
@@ -40,7 +41,7 @@ export class AuthService {
 
       return {
         ...admin,
-        token: this.getJwtToken({ id: admin.id }),
+        token: this.getJwtToken({ id: admin.id, roles: admin.roles }),
       };
     } catch (error) {
       this.handleDBErrors(error);
@@ -75,7 +76,7 @@ export class AuthService {
 
       return {
         ...user,
-        token: this.getJwtToken({ id: user.id }),
+        token: this.getJwtToken({ id: user.id, roles: user.roles }),
       };
     } catch (error) {
       this.handleDBErrors(error);
@@ -97,14 +98,14 @@ export class AuthService {
 
     return {
       ...user,
-      token: this.getJwtToken({ id: user.id }),
+      token: this.getJwtToken({ id: user.id, roles: user.roles }),
     };
   }
 
   async checkAuthStatus(user: User) {
     return {
       ...user,
-      token: this.getJwtToken({ id: user.id }),
+      token: this.getJwtToken({ id: user.id, roles: user.roles }),
     };
   }
 

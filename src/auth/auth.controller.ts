@@ -122,7 +122,7 @@ export class AuthController {
 
     return {
       user,
-      token: this.authService.getJwtToken({ id: user.id }),
+      token: this.authService.getJwtToken({ id: user.id, roles: user.roles }),
     };
   }
 
